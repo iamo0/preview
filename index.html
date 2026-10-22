@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Пошаговый редактор кода</title>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzI1MjUyNiIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjx0c3BhbiBmaWxsPSIjODg4ODg4Ij4mbHQ7PC90c3Bhbj48dHNwYW4gZmlsbD0iIzRlYzk0ZSI+fDwvdHNwYW4+PHRzcGFuIGZpbGw9IiM4ODg4ODgiPi8mZ3Q7PC90c3Bhbj48L3RleHQ+PC9zdmc+">
 
@@ -23,7 +23,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; -webkit-text-size-adjust: 100%; }
   body {
     font-family: 'Fira Sans', -apple-system, Segoe UI, sans-serif;
     background: #1e1e1e; color: #ccc;
@@ -33,6 +33,13 @@
       "workspace"
       "steps";
     overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, .tab, .io-btn, .step-nav, .step-add, .step-delete, .view-toggle button, .console-header {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .workspace {
@@ -97,7 +104,6 @@
     background: #fff;
   }
 
-  /* Плашка с title фрейма — всегда видна, фиксированной высоты */
   .preview-title {
     flex-shrink: 0;
     height: 28px;
@@ -144,15 +150,23 @@
   .console-line.system { color: #888; font-style: italic; }
   .console-empty { padding: 12px; color: #555; font-style: italic; font-size: 12px; }
 
+  /* ============ Steps panel ============ */
   .steps-panel {
     grid-area: steps;
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px;
     background: #252526;
     border-top: 1px solid #333;
     flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
   }
+
   .steps-nav { display: flex; gap: 6px; align-items: center; }
   .step-nav { padding: 6px 14px; background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 15px; transition: .15s; font-family: inherit; }
   .step-nav:hover:not(:disabled) { background: #0e639c; color: #fff; border-color: #1177bb; }
@@ -186,6 +200,9 @@
   .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #0e639c; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 1000; }
   .toast.show { opacity: 1; }
 
+  /* ============================================================
+     MOBILE
+     ============================================================ */
   @media (max-width: 768px) {
     .workspace {
       grid-template-columns: 1fr;
@@ -204,10 +221,56 @@
 
     .view-toggle { display: flex; }
 
-    .step-nav, .io-btn, .step-add, .step-delete { padding: 8px 14px; font-size: 14px; }
-    .steps-panel { padding: 8px 12px; gap: 6px; }
+    /* Крупнее кнопки для тача */
+    .step-nav, .io-btn, .step-add, .step-delete { padding: 10px 16px; font-size: 14px; }
+    .step-nav { min-width: 48px; }
+    .step-name-input { padding: 10px 12px; font-size: 14px; width: auto; flex: 1; min-width: 0; }
+
+    /* Нижняя панель: две строки, без случайного переноса */
+    .steps-panel {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+      gap: 8px;
+      padding: 10px 12px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      padding-left: calc(12px + env(safe-area-inset-left));
+      padding-right: calc(12px + env(safe-area-inset-right));
+    }
+    .steps-panel > .steps-row-1,
+    .steps-panel > .steps-row-2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: nowrap;
+    }
+    .steps-row-1 {
+      justify-content: space-between;
+    }
+    .steps-row-2 {
+      justify-content: flex-start;
+    }
+    .steps-row-1 .steps-nav { flex: 0 0 auto; }
+    .steps-row-1 .view-toggle { flex: 0 0 auto; }
+    .steps-row-2 .step-name-input { flex: 1; min-width: 0; }
+    .steps-row-2 .step-add,
+    .steps-row-2 .step-delete { flex: 0 0 auto; }
+
+    .steps-spacer { display: none; }
+
     .editor-toolbar { padding: 8px 10px; }
-    .toast { bottom: 90px; }
+
+    .toast {
+      bottom: calc(120px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* На десктопе строки не разделяются — всё в одну линию */
+  @media (min-width: 769px) {
+    .steps-row-1, .steps-row-2 {
+      display: contents;
+    }
   }
 </style>
 </head>
@@ -259,20 +322,23 @@
 </div>
 
 <div class="steps-panel">
-  <div class="view-toggle" id="viewToggle">
-    <button type="button" data-view="editor">Редактор</button>
-    <button type="button" data-view="preview" class="active">Превью</button>
+  <div class="steps-row-1">
+    <div class="view-toggle" id="viewToggle">
+      <button type="button" data-view="editor">Редактор</button>
+      <button type="button" data-view="preview" class="active">Превью</button>
+    </div>
+    <div class="steps-nav">
+      <button type="button" class="step-nav" id="prevBtn" title="Предыдущий шаг (Alt+←)">←</button>
+      <span class="step-counter" id="stepCounter"></span>
+      <button type="button" class="step-nav" id="nextBtn" title="Следующий шаг (Alt+→)">→</button>
+    </div>
   </div>
 
-  <div class="steps-nav">
-    <button type="button" class="step-nav" id="prevBtn" title="Предыдущий шаг (Alt+←)">←</button>
-    <span class="step-counter" id="stepCounter"></span>
-    <button type="button" class="step-nav" id="nextBtn" title="Следующий шаг (Alt+→)">→</button>
+  <div class="steps-row-2">
+    <input type="text" class="step-name-input" id="stepNameInput" placeholder="Имя шага">
+    <button type="button" class="step-add" id="addStepBtn">+ Шаг</button>
+    <button type="button" class="step-delete" id="deleteStepBtn">Удалить</button>
   </div>
-
-  <input type="text" class="step-name-input" id="stepNameInput" placeholder="Имя шага">
-  <button type="button" class="step-add" id="addStepBtn">+ Шаг</button>
-  <button type="button" class="step-delete" id="deleteStepBtn">Удалить</button>
 
   <div class="steps-spacer"></div>
 </div>
@@ -334,7 +400,6 @@ const consoleBody = document.getElementById('consoleBody');
 const consoleCount = document.getElementById('consoleCount');
 const consoleClearBtn = document.getElementById('consoleClearBtn');
 
-const editorPane = document.querySelector('.editor-pane');
 const editorTabs = document.querySelectorAll('#editorTabs .tab');
 const editorContainers = document.querySelectorAll('.editor-container');
 
@@ -510,7 +575,6 @@ function updatePreview() {
   const doc = buildPreviewDoc(steps[currentStep]);
   previewFrame.srcdoc = doc;
 
-  // Извлекаем <title> из собранного документа
   const match = doc.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const titleText = match ? match[1].trim() : '';
 

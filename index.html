@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пошаговый редактор кода</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzI1MjUyNiIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjx0c3BhbiBmaWxsPSIjODg4ODg4Ij4mbHQ7PC90c3Bhbj48dHNwYW4gZmlsbD0iIzRlYzk0ZSI+fDwvdHNwYW4+PHRzcGFuIGZpbGw9IiM4ODg4ODgiPi8mZ3Q7PC90c3Bhbj48L3RleHQ+PC9zdmc+">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fira Sans', -apple-system, Segoe UI, sans-serif;
+    height: 100vh; display: flex; flex-direction: column;
+    background: #1e1e1e; color: #ccc;
+    overflow: hidden;
+  }
+  header { padding: 10px 16px; background: #252526; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+
+  .io-btns { display: flex; gap: 6px; align-items: center; }
+  .io-btn { padding: 6px 12px; background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: 'Fira Sans', sans-serif; transition: .15s; }
+  .io-btn:hover { background: #3a3a3a; color: #fff; }
+  .io-btn.primary { background: #0e639c; color: #fff; border-color: #1177bb; }
+  .io-btn.primary:hover { background: #1177bb; }
+  .io-btn.dirty { background: #b58900; color: #fff; border-color: #d4a017; }
+  .io-btn.dirty:hover { background: #d4a017; }
+
+  .main { flex: 1; display: flex; min-height: 0; }
+  .editor-pane { width: 50%; display: flex; flex-direction: column; border-right: 1px solid #333; min-width: 0; }
+  .resize-handle { width: 6px; cursor: col-resize; background: #333; transition: background .15s; flex-shrink: 0; }
+  .resize-handle:hover,
+  .resize-handle.dragging { background: #0e639c; }
+
+  .tabs { display: flex; background: #252526; border-bottom: 1px solid #333; flex-shrink: 0; }
+  .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: #888; border-right: 1px solid #333; font-family: 'Fira Sans', sans-serif; }
+  .tab.active { background: #1e1e1e; color: #fff; border-top: 2px solid #0e639c; padding-top: 6px; }
+
+  .code-area { flex: 1; position: relative; }
+  .editor-container { position: absolute; inset: 0; display: none; }
+  .editor-container.active { display: block; }
+  .CodeMirror {
+    height: 100%;
+    font-family: 'Fira Code', Consolas, Monaco, monospace;
+    font-size: 15px;
+    line-height: 1.55;
+    background: #1e1e1e;
+    font-variant-ligatures: contextual;
+  }
+  .CodeMirror-gutters { background: #252526; border-right: 1px solid #333; }
+
+  .preview-pane { flex: 1; display: flex; flex-direction: column; background: #fff; min-width: 0; }
+  .preview-header { padding: 8px 16px; background: #252526; color: #888; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: 'Fira Sans', sans-serif; flex-shrink: 0; }
+  .preview-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  iframe { flex: 1; border: none; width: 100%; background: #fff; }
+
+  .console-panel { display: flex; flex-direction: column; background: #1a1a1a; border-top: 1px solid #333; min-height: 32px; max-height: 50vh; flex-shrink: 0; }
+  .console-panel.collapsed { max-height: 32px; }
+  .console-header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #252526; cursor: pointer; user-select: none; font-family: 'Fira Sans', sans-serif; font-size: 13px; color: #ccc; border-bottom: 1px solid #333; }
+  .console-header:hover { background: #2d2d2e; }
+  .console-toggle { display: inline-block; transition: transform .15s; font-size: 10px; color: #888; }
+  .console-panel.collapsed .console-toggle { transform: rotate(-90deg); }
+  .console-title { font-weight: 500; }
+  .console-count { background: #444; color: #bbb; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+  .console-count.has-errors { background: #c0392b; color: #fff; }
+  .console-actions { margin-left: auto; display: flex; gap: 4px; }
+  .console-btn { padding: 3px 8px; background: transparent; color: #999; border: 1px solid #444; border-radius: 3px; cursor: pointer; font-size: 11px; font-family: 'Fira Sans', sans-serif; }
+  .console-btn:hover { background: #333; color: #fff; }
+  .console-body { flex: 1; overflow-y: auto; font-family: 'Fira Code', Consolas, Monaco, monospace; font-size: 13px; line-height: 1.5; }
+  .console-panel.collapsed .console-body { display: none; }
+
+  .console-line { padding: 4px 12px; border-bottom: 1px solid #252525; white-space: pre-wrap; word-break: break-word; display: flex; gap: 8px; }
+  .console-line:last-child { border-bottom: none; }
+  .console-line .console-icon { flex-shrink: 0; width: 14px; opacity: .8; }
+  .console-line .console-msg { flex: 1; min-width: 0; }
+  .console-line.log { color: #d4d4d4; }
+  .console-line.info { color: #6cb6ff; }
+  .console-line.warn { color: #e2b93b; background: rgba(226, 185, 59, .06); }
+  .console-line.error { color: #f48771; background: rgba(244, 135, 113, .08); }
+  .console-line.system { color: #888; font-style: italic; }
+  .console-empty { padding: 12px; color: #555; font-style: italic; font-family: 'Fira Sans', sans-serif; font-size: 12px; }
+
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #0e639c; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 1000; font-family: 'Fira Sans', sans-serif; }
+  .toast.show { opacity: 1; }
+  .toast.success { background: #27ae60; }
+  .toast.error { background: #c0392b; }
+
+  .bottom-bar {
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px 12px; background: #252526; border-top: 1px solid #333;
+    flex-shrink: 0;
+  }
+  .bottom-bar-inner {
+    display: flex; align-items: center; gap: 8px;
+    background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
+    padding: 4px 6px;
+    max-width: 100%;
+  }
+  .bottom-bar .step-nav {
+    padding: 6px 14px; font-size: 15px;
+    background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px;
+    cursor: pointer; transition: .15s; font-family: 'Fira Sans', sans-serif;
+  }
+  .bottom-bar .step-nav:hover:not(:disabled) { background: #0e639c; color: #fff; border-color: #1177bb; }
+  .bottom-bar .step-nav:disabled { opacity: .35; cursor: not-allowed; }
+  .bottom-bar .step-counter { font-size: 13px; color: #999; text-align: center; min-width: 90px; font-family: 'Fira Sans', sans-serif; }
+  .bottom-bar .step-name-input {
+    width: 200px; padding: 5px 8px; font-size: 13px;
+    background: #252526; color: #ddd;
+    border: 1px solid #3a3a3a; border-radius: 4px;
+    font-family: 'Fira Sans', sans-serif;
+  }
+  .bottom-bar .step-name-input:focus { outline: none; border-color: #0e639c; }
+  .bottom-bar .step-delete,
+  .bottom-bar .step-add {
+    padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
+    font-family: 'Fira Sans', sans-serif;
+  }
+  .bottom-bar .step-delete { background: transparent; color: #c55; border: 1px solid #633; }
+  .bottom-bar .step-delete:hover { background: #633; color: #fff; }
+  .bottom-bar .step-delete:disabled { opacity: .35; cursor: not-allowed; }
+  .bottom-bar .step-delete:disabled:hover { background: transparent; color: #c55; }
+  .bottom-bar .step-add { background: transparent; color: #888; border: 1px dashed #555; }
+  .bottom-bar .step-add:hover { color: #fff; border-color: #888; }
+
+  .bottom-bar .mode-toggle {
+    display: none;
+    padding: 6px 12px; font-size: 13px;
+    background: #0e639c; color: #fff; border: 1px solid #1177bb; border-radius: 4px;
+    cursor: pointer; font-family: 'Fira Sans', sans-serif; transition: .15s;
+    white-space: nowrap;
+  }
+  .bottom-bar .mode-toggle:hover { background: #1177bb; }
+  .bottom-bar .mode-toggle.preview-mode { background: #555; border-color: #666; }
+  .bottom-bar .mode-toggle.preview-mode:hover { background: #666; }
+
+  .mobile-overlay {
+    position: absolute; inset: 0; background: #1e1e1e; z-index: 200;
+    display: none; flex-direction: column;
+  }
+  .mobile-overlay.open { display: flex; }
+
+  .overlay-io-btns {
+    display: flex; gap: 6px; padding: 8px 12px; background: #252526;
+    border-bottom: 1px solid #333; flex-wrap: wrap; flex-shrink: 0;
+  }
+  .overlay-io-btns .io-btn { font-size: 13px; padding: 8px 12px; }
+  .overlay-tabs {
+    display: flex; background: #252526; border-bottom: 1px solid #333;
+    flex-shrink: 0;
+  }
+  .overlay-tabs .tab { padding: 10px 16px; font-size: 13px; }
+  .overlay-editor-area { flex: 1; position: relative; min-height: 0; }
+  .overlay-editor-area .editor-container { position: absolute; inset: 0; display: none; }
+  .overlay-editor-area .editor-container.active { display: block; }
+
+  @media (max-width: 768px) {
+    header { padding: 8px 12px; gap: 6px; }
+    .io-btns { display: none; }
+
+    .main { flex-direction: column; position: relative; }
+    .editor-pane, .resize-handle { display: none; }
+    .preview-pane { flex: 1; min-height: 0; }
+
+    .bottom-bar { padding: 6px 8px; }
+    .bottom-bar-inner { gap: 6px; padding: 4px; flex-wrap: nowrap; overflow-x: auto; }
+    .bottom-bar .step-nav { padding: 8px 12px; font-size: 16px; }
+    .bottom-bar .step-counter { font-size: 12px; min-width: 70px; }
+    .bottom-bar .step-name-input { width: 120px; font-size: 12px; }
+    .bottom-bar .step-delete { padding: 4px 8px; font-size: 12px; }
+    .bottom-bar .step-add { display: none; }
+    .bottom-bar .mode-toggle { display: block; padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="io-btns">
+    <button type="button" class="io-btn primary" id="saveBtn" title="Сохранить в localStorage">💾 Сохранить</button>
+    <button type="button" class="io-btn" id="exportBtn" title="Выгрузить в JSON">⬇ Экспорт</button>
+    <button type="button" class="io-btn" id="importBtn" title="Импортировать из JSON">⬆ Импорт</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  </div>
+</header>
+
+<div class="main">
+  <div class="editor-pane" id="editorPane">
+    <div class="tabs">
+      <div class="tab active" data-lang="html">HTML</div>
+      <div class="tab" data-lang="css">CSS</div>
+      <div class="tab" data-lang="js">JS</div>
+    </div>
+    <div class="code-area">
+      <div class="editor-container active" data-lang="html" id="editor-html"></div>
+      <div class="editor-container" data-lang="css" id="editor-css"></div>
+      <div class="editor-container" data-lang="js" id="editor-js"></div>
+    </div>
+  </div>
+  <div class="resize-handle" id="resizeHandle" title="Двойной клик — сбросить 50/50"></div>
+  <div class="preview-pane">
+    <div class="preview-header" id="previewHeader">
+      <span>Предпросмотр</span>
+    </div>
+    <div class="preview-body">
+      <iframe id="previewFrame" sandbox="allow-scripts allow-modals" title="Предпросмотр"></iframe>
+      <div class="console-panel collapsed" id="consolePanel">
+        <div class="console-header" id="consoleHeader">
+          <span class="console-toggle">▼</span>
+          <span class="console-title">Консоль</span>
+          <span class="console-count" id="consoleCount" title="Всего сообщений">0</span>
+          <div class="console-actions">
+            <button type="button" class="console-btn" id="consoleClearBtn" title="Очистить">Очистить</button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody">
+          <div class="console-empty">Консоль пуста</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-overlay" id="mobileOverlay">
+    <div class="overlay-io-btns">
+      <button type="button" class="io-btn primary" id="mobileSaveBtn">💾 Сохранить</button>
+      <button type="button" class="io-btn" id="mobileExportBtn">⬇ Экспорт</button>
+      <button type="button" class="io-btn" id="mobileImportBtn">⬆ Импорт</button>
+    </div>
+    <div class="overlay-tabs">
+      <div class="tab active" data-overlay-tab="html">HTML</div>
+      <div class="tab" data-overlay-tab="css">CSS</div>
+      <div class="tab" data-overlay-tab="js">JS</div>
+    </div>
+    <div class="overlay-editor-area">
+      <div class="editor-container active" data-lang="html" id="overlay-editor-html"></div>
+      <div class="editor-container" data-lang="css" id="overlay-editor-css"></div>
+      <div class="editor-container" data-lang="js" id="overlay-editor-js"></div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-bar-inner">
+    <button type="button" class="step-nav" id="prevBtn" title="Предыдущий шаг (Ctrl/Cmd+Shift+←)">←</button>
+    <span class="step-counter" id="stepCounter"></span>
+    <button type="button" class="step-nav" id="nextBtn" title="Следующий шаг (Ctrl/Cmd+Shift+→)">→</button>
+    <input type="text" class="step-name-input" id="stepNameInput" placeholder="Название шага" maxlength="120" aria-label="Название шага">
+    <button type="button" class="step-delete" id="stepDeleteBtn">Удалить</button>
+    <button type="button" class="step-add" id="stepAddBtn">+ Шаг</button>
+    <button type="button" class="mode-toggle" id="modeToggle" title="Переключить режим">✎ Редактировать</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   КОНСТАНТЫ И МОДЕЛЬ
+   ============================================================ */
+
+const STORAGE_KEY = 'step-editor:v1';
+const SPLIT_KEY = 'step-editor:split';
+const MODE_KEY = 'step-editor:mode';
+
+const LIMITS = {
+  maxSteps: 500,
+  maxStepNameLen: 120,
+  maxStepContentBytes: 2 * 1024 * 1024,   // 2 MB на шаг (html+css+js)
+  maxTotalContentBytes: 5 * 1024 * 1024,  // 5 MB суммарно по всем шагам
+  maxFileSize: 5 * 1024 * 1024,           // 5 MB на импортируемый файл
+  maxConsoleTextLen: 10000                // обрезка длинного текста в консоли
+};
+
+const HTML5_BOILERPLATE = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Документ</title>
+</head>
+<body>
+  
+</body>
+</html>`;
+
+const CSS_BOILERPLATE = `/* Стили */`;
+const JS_BOILERPLATE = `// JavaScript`;
+
+function defaultStepName(index) {
+  return 'Шаг ' + index;
+}
+
+function makeEmptyStep(index) {
+  return {
+    name: defaultStepName(index),
+    html: HTML5_BOILERPLATE,
+    css: CSS_BOILERPLATE,
+    js: JS_BOILERPLATE
+  };
+}
+
+function makeDefaultSteps() {
+  return [makeEmptyStep(1)];
+}
+
+let steps = makeDefaultSteps();
+let currentStep = 0;
+let debounceTimer;
+let dirty = false;
+
+/* ============================================================
+   DOM
+   ============================================================ */
+
+const previewFrame = document.getElementById('previewFrame');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const stepCounter = document.getElementById('stepCounter');
+const stepNameInput = document.getElementById('stepNameInput');
+const stepDeleteBtn = document.getElementById('stepDeleteBtn');
+const stepAddBtn = document.getElementById('stepAddBtn');
+const modeToggle = document.getElementById('modeToggle');
+const tabsDesktop = document.querySelectorAll('.tabs .tab');
+const containersDesktop = document.querySelectorAll('.code-area .editor-container');
+const saveBtn = document.getElementById('saveBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const toastEl = document.getElementById('toast');
+
+const consolePanel = document.getElementById('consolePanel');
+const consoleHeader = document.getElementById('consoleHeader');
+const consoleBody = document.getElementById('consoleBody');
+const consoleCount = document.getElementById('consoleCount');
+const consoleClearBtn = document.getElementById('consoleClearBtn');
+
+const mobileOverlay = document.getElementById('mobileOverlay');
+const mobileSaveBtn = document.getElementById('mobileSaveBtn');
+const mobileExportBtn = document.getElementById('mobileExportBtn');
+const mobileImportBtn = document.getElementById('mobileImportBtn');
+const tabsOverlay = document.querySelectorAll('[data-overlay-tab]');
+const containersOverlay = document.querySelectorAll('.overlay-editor-area .editor-container');
+
+/* ============================================================
+   УТИЛИТЫ
+   ============================================================ */
+
+function showToast(msg, kind = 'info') {
+  toastEl.textContent = msg;
+  toastEl.className = 'toast show' + (kind === 'success' ? ' success' : kind === 'error' ? ' error' : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toastEl.className = 'toast';
+  }, 2000);
+}
+
+function setDirty(value) {
+  if (dirty === value) return;
+  dirty = value;
+  saveBtn.classList.toggle('dirty', dirty);
+  saveBtn.textContent = dirty ? '💾 Сохранить*' : '💾 Сохранить';
+  mobileSaveBtn.classList.toggle('dirty', dirty);
+  mobileSaveBtn.textContent = dirty ? '💾 Сохранить*' : '💾 Сохранить';
+}
+
+function markDirty() {
+  if (!dirty) setDirty(true);
+}
+
+function isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function escapeClosingTags(code, tagName) {
+  const re = new RegExp('</' + tagName, 'gi');
+  return String(code).replace(re, '<\\/' + tagName);
+}
+
+/* TextEncoder быстрее, чем new Blob, и не аллоцирует Blob-объекты */
+const encoder = new TextEncoder();
+function byteLength(str) {
+  return encoder.encode(str).length;
+}
+
+/* ============================================================
+   РЕЖИМ (мобильный)
+   ============================================================ */
+
+let mode = 'preview';
+
+/* skipSave — чтобы не затирать модель при инициализации (restoreMode) */
+function setMode(newMode, { skipSave = false } = {}) {
+  const next = newMode === 'edit' ? 'edit' : 'preview';
+  if (next === mode) {
+    // состояние не меняется — только обновим кнопку
+    updateModeButton();
+    return;
+  }
+  if (!skipSave) saveActiveEditorToStep();
+  mode = next;
+
+  if (isMobile()) {
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* ignore */ }
+    if (mode === 'edit') {
+      mobileOverlay.classList.add('open');
+      syncEditorsToModel('overlay');
+      setTimeout(() => Object.values(overlayEditors).forEach(ed => ed.refresh()), 20);
+    } else {
+      mobileOverlay.classList.remove('open');
+      syncEditorsToModel('desktop');
+    }
+  } else {
+    mobileOverlay.classList.remove('open');
+  }
+  updateModeButton();
+}
+
+function updateModeButton() {
+  if (mode === 'edit') {
+    modeToggle.textContent = 'Просмотр';
+    modeToggle.classList.add('preview-mode');
+    modeToggle.title = 'Переключить в режим просмотра';
+  } else {
+    modeToggle.textContent = '✎ Редактировать';
+    modeToggle.classList.remove('preview-mode');
+    modeToggle.title = 'Переключить в режим редактирования';
+  }
+}
+
+function restoreMode() {
+  let initial = 'preview';
+  try {
+    const saved = localStorage.getItem(MODE_KEY);
+    if ((saved === 'edit' || saved === 'preview') && isMobile()) initial = saved;
+  } catch (e) { /* ignore */ }
+  // skipSave: модель на этом этапе — источник истины, редакторы её только что получили
+  setMode(initial, { skipSave: true });
+}
+
+modeToggle.onclick = () => setMode(mode === 'edit' ? 'preview' : 'edit');
+
+/* ============================================================
+   ПСЕВДО-КОНСОЛЬ
+   runId защищает от логов старых iframe-запусков.
+   Перехватываются: log, info, warn, error, debug (→ log),
+   window.onerror, unhandledrejection.
+   console.table/group/assert — не перехватываются.
+   ============================================================ */
+
+const consoleState = { messages: [], errorCount: 0 };
+let currentRunId = 0;
+const ICONS = { log: '›', info: 'ℹ', warn: '⚠', error: '✖', system: '•' };
+
+function truncateText(str) {
+  if (typeof str !== 'string') str = String(str);
+  if (str.length <= LIMITS.maxConsoleTextLen) return str;
+  return str.slice(0, LIMITS.maxConsoleTextLen) + '… (обрезано)';
+}
+
+function formatValue(v) {
+  if (v === null) return 'null';
+  if (v === undefined) return 'undefined';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v);
+  if (typeof v === 'function') return v.toString().split('\n')[0];
+  if (v instanceof Error) return v.stack || (v.name + ': ' + v.message);
+  if (typeof Element !== 'undefined' && v instanceof Element) {
+    const className = typeof v.className === 'string' ? v.className.trim() : '';
+    return '<' + v.tagName.toLowerCase() + (v.id ? '#' + v.id : '') +
+      (className ? '.' + className.split(/\s+/).join('.') : '') + '>';
+  }
+  try {
+    const seen = new WeakSet();
+    return JSON.stringify(v, (k, val) => {
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+      }
+      return val;
+    }, 2);
+  } catch {
+    return String(v);
+  }
+}
+
+function formatArgs(args) {
+  return args.map(a => typeof a === 'string' ? a : formatValue(a)).join(' ');
+}
+
+function appendConsoleLine(level, text) {
+  const empty = consoleBody.querySelector('.console-empty');
+  if (empty) empty.remove();
+
+  const line = document.createElement('div');
+  line.className = 'console-line ' + level;
+
+  const icon = document.createElement('span');
+  icon.className = 'console-icon';
+  icon.textContent = ICONS[level] || '›';
+
+  const msg = document.createElement('span');
+  msg.className = 'console-msg';
+  msg.textContent = text;
+
+  line.appendChild(icon);
+  line.appendChild(msg);
+  consoleBody.appendChild(line);
+  consoleBody.scrollTop = consoleBody.scrollHeight;
+}
+
+function pushConsole(level, args) {
+  const text = truncateText(Array.isArray(args) ? formatArgs(args) : String(args));
+  consoleState.messages.push({ level, text });
+  if (level === 'error') consoleState.errorCount++;
+  updateConsoleUI();
+  appendConsoleLine(level, text);
+}
+
+function updateConsoleUI() {
+  const total = consoleState.messages.length;
+  const errors = consoleState.errorCount;
+  consoleCount.textContent = total;
+  consoleCount.title = errors > 0
+    ? `Всего: ${total}, ошибок: ${errors}`
+    : `Всего: ${total}`;
+  consoleCount.classList.toggle('has-errors', errors > 0);
+}
+
+function clearConsole() {
+  consoleState.messages = [];
+  consoleState.errorCount = 0;
+  consoleBody.innerHTML = '<div class="console-empty">Консоль пуста</div>';
+  updateConsoleUI();
+}
+
+window.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || data.__stepEditorConsole !== true) return;
+  if (event.source !== previewFrame.contentWindow) return;
+  if (data.runId !== currentRunId) return;
+
+  if (data.type === 'log') pushConsole(data.level, data.args);
+  else if (data.type === 'clear') clearConsole();
+});
+
+function buildConsoleInterceptor(runId) {
+  return `<script>
+(function(){
+  var RUN_ID = ${JSON.stringify(runId)};
+  var send = function(level, args) {
+    try {
+      var safeArgs = [];
+      for (var i = 0; i < args.length; i++) {
+        var a = args[i];
+        if (typeof a === 'string' || typeof a === 'number' || typeof a === 'boolean' || a === null || a === undefined) {
+          safeArgs.push(a);
+        } else {
+          try {
+            if (a instanceof Error) safeArgs.push(a.stack || (a.name + ': ' + a.message));
+            else if (a instanceof Element) safeArgs.push('<' + a.tagName.toLowerCase() + (a.id ? '#' + a.id : '') + '>');
+            else {
+              var seen = new WeakSet();
+              safeArgs.push(JSON.stringify(a, function(k, v) {
+                if (typeof v === 'object' && v !== null) {
+                  if (seen.has(v)) return '[Circular]';
+                  seen.add(v);
+                }
+                return v;
+              }));
+            }
+          } catch (e) { safeArgs.push(String(a)); }
+        }
+      }
+      parent.postMessage({ __stepEditorConsole: true, runId: RUN_ID, type: 'log', level: level, args: safeArgs }, '*');
+    } catch (e) {}
+  };
+
+  ['log', 'info', 'warn', 'error', 'debug'].forEach(function(level) {
+    console[level] = function() {
+      send(level === 'debug' ? 'log' : level, Array.prototype.slice.call(arguments));
+    };
+  });
+
+  window.addEventListener('error', function(e) {
+    send('error', [e.message + (e.filename ? ' (' + e.filename + ':' + e.lineno + ':' + e.colno + ')' : '')]);
+  });
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var reason = e.reason;
+    send('error', ['Unhandled rejection: ' + (reason && reason.message ? reason.message : String(reason))]);
+  });
+
+  send('system', ['— новый запуск —']);
+})();
+<\/script>`;
+}
+
+/* ============================================================
+   СБОРКА HTML ДЛЯ IFRAME
+   ============================================================ */
+
+function buildPreviewDoc(step, runId) {
+  const interceptor = buildConsoleInterceptor(runId);
+  const userHtml = step.html || '';
+  const userCss = escapeClosingTags(step.css || '', 'style');
+  const userJs = escapeClosingTags(step.js || '', 'script');
+  const looksLikeFullDoc = /<!DOCTYPE html>|<html[\s>]/i.test(userHtml);
+
+  if (looksLikeFullDoc) {
+    let doc = userHtml;
+    if (/<head[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<head[^>]*>/i, (m) => m + '\n' + interceptor);
+    } else if (/<html[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<html[^>]*>/i, (m) => m + '\n<head>' + interceptor + '</head>');
+    } else {
+      doc = interceptor + doc;
+    }
+    if (userCss.trim()) {
+      const styleBlock = `<style>${userCss}</style>`;
+      // Приоритет: </head> → </body> → после <body> → в начало
+      if (/<\/head>/i.test(doc)) {
+        doc = doc.replace(/<\/head>/i, styleBlock + '\n</head>');
+      } else if (/<\/body>/i.test(doc)) {
+        doc = doc.replace(/<\/body>/i, styleBlock + '\n</body>');
+      } else if (/<body[^>]*>/i.test(doc)) {
+        doc = doc.replace(/<body[^>]*>/i, (m) => m + '\n' + styleBlock);
+      } else {
+        doc = styleBlock + '\n' + doc;
+      }
+    }
+    if (userJs.trim()) {
+      const jsBlock = `<script>\ntry {\n${userJs}\n} catch (e) { console.error(e); }\n<\/script>`;
+      if (/<\/body>/i.test(doc)) {
+        doc = doc.replace(/<\/body>/i, jsBlock + '\n</body>');
+      } else if (/<\/html>/i.test(doc)) {
+        doc = doc.replace(/<\/html>/i, jsBlock + '\n</html>');
+      } else {
+        doc = doc + '\n' + jsBlock;
+      }
+    }
+    return doc;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+${interceptor}
+<style>${userCss}</style>
+</head>
+<body>
+${userHtml}
+<script>
+try {
+${userJs}
+} catch (e) {
+  console.error(e);
+}
+<\/script>
+</body>
+</html>`;
+}
+
+function updatePreview() {
+  const step = steps[currentStep];
+  clearConsole();
+  currentRunId++;
+  previewFrame.srcdoc = buildPreviewDoc(step, currentRunId);
+}
+
+/* ============================================================
+   РЕДАКТОРЫ
+   Источник истины — steps[currentStep][lang].
+   Активный набор (desktop/overlay) определяется mobileOverlay.classList.contains('open').
+   suppressChange — глобальный флаг, т.к. CodeMirror 5 эмитит change синхронно.
+   ============================================================ */
+
+const editors = {};
+const overlayEditors = {};
+let suppressChange = false;
+
+function makeEditorConfig(lang) {
+  const base = {
+    html: { mode: 'htmlmixed', theme: 'monokai', autoCloseTags: true, autoCloseBrackets: true },
+    css:  { mode: 'css',       theme: 'monokai', autoCloseBrackets: true },
+    js:   { mode: 'javascript',theme: 'monokai', autoCloseBrackets: true }
+  }[lang];
+
+  return {
+    ...base,
+    lineNumbers: true,
+    lineWrapping: true,
+    indentUnit: 2,
+    tabSize: 2,
+    indentWithTabs: false,
+    extraKeys: {
+      "Tab": (cm) => { cm.replaceSelection("  "); },
+      "Esc": (cm) => { cm.getInputField().blur(); }
+    }
+  };
+}
+
+function overlayIsActive() {
+  return mobileOverlay.classList.contains('open');
+}
+
+function activeEditor(lang) {
+  return overlayIsActive() ? overlayEditors[lang] : editors[lang];
+}
+
+function inactiveEditor(lang) {
+  return overlayIsActive() ? editors[lang] : overlayEditors[lang];
+}
+
+function onAnyChange(lang) {
+  if (suppressChange) return;
+  const src = activeEditor(lang);
+  if (!src) return;
+  const step = steps[currentStep];
+  step[lang] = src.getValue();
+  markDirty();
+  const other = inactiveEditor(lang);
+  if (other && other.getValue() !== step[lang]) {
+    suppressChange = true;
+    try { other.setValue(step[lang]); }
+    finally { suppressChange = false; }
+  }
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(updatePreview, 300);
+}
+
+function initEditors() {
+  ['html', 'css', 'js'].forEach(lang => {
+    const container = document.getElementById(`editor-${lang}`);
+    editors[lang] = CodeMirror(container, makeEditorConfig(lang));
+    editors[lang].on('change', () => onAnyChange(lang));
+
+    const overlayContainer = document.getElementById(`overlay-editor-${lang}`);
+    overlayEditors[lang] = CodeMirror(overlayContainer, makeEditorConfig(lang));
+    overlayEditors[lang].on('change', () => onAnyChange(lang));
+  });
+}
+
+function setEditorsValue(lang, value) {
+  suppressChange = true;
+  try {
+    if (editors[lang] && editors[lang].getValue() !== value) editors[lang].setValue(value);
+    if (overlayEditors[lang] && overlayEditors[lang].getValue() !== value) overlayEditors[lang].setValue(value);
+  } finally {
+    suppressChange = false;
+  }
+}
+
+function loadStepIntoEditors() {
+  const step = steps[currentStep];
+  Object.keys(editors).forEach(lang => setEditorsValue(lang, step[lang] || ''));
+}
+
+function syncEditorsToModel(which) {
+  const target = which === 'overlay' ? overlayEditors : editors;
+  suppressChange = true;
+  try {
+    Object.keys(target).forEach(lang => {
+      const v = steps[currentStep][lang] || '';
+      if (target[lang].getValue() !== v) target[lang].setValue(v);
+    });
+  } finally {
+    suppressChange = false;
+  }
+}
+
+function saveActiveEditorToStep() {
+  const step = steps[currentStep];
+  const src = overlayIsActive() ? overlayEditors : editors;
+  Object.keys(src).forEach(lang => {
+    if (src[lang]) step[lang] = src[lang].getValue();
+  });
+}
+
+/* ============================================================
+   НИЖНЯЯ ПАНЕЛЬ / ШАГИ
+   ============================================================ */
+
+function renderBottomBar() {
+  stepCounter.textContent = `Шаг ${currentStep + 1} из ${steps.length}`;
+  prevBtn.disabled = currentStep === 0;
+  nextBtn.disabled = currentStep === steps.length - 1;
+
+  const desired = steps[currentStep].name;
+  if (stepNameInput.value !== desired) {
+    const isFocused = document.activeElement === stepNameInput;
+    const start = isFocused ? stepNameInput.selectionStart : null;
+    const end = isFocused ? stepNameInput.selectionEnd : null;
+    stepNameInput.value = desired;
+    if (isFocused && start !== null) {
+      const len = desired.length;
+      stepNameInput.setSelectionRange(Math.min(start, len), Math.min(end, len));
+    }
+  }
+
+  stepDeleteBtn.disabled = steps.length <= 1;
+}
+
+stepNameInput.addEventListener('input', (e) => {
+  const val = e.target.value.slice(0, LIMITS.maxStepNameLen);
+  if (e.target.value !== val) e.target.value = val;
+  steps[currentStep].name = val;
+  markDirty();
+});
+
+stepNameInput.addEventListener('blur', () => {
+  if (!stepNameInput.value.trim()) {
+    steps[currentStep].name = defaultStepName(currentStep + 1);
+    stepNameInput.value = steps[currentStep].name;
+    markDirty();
+  }
+});
+
+function switchStep(index) {
+  if (index < 0 || index >= steps.length) return;
+  clearTimeout(debounceTimer);
+  saveActiveEditorToStep();
+  currentStep = index;
+  loadStepIntoEditors();
+  renderBottomBar();
+  updatePreview();
+}
+
+function addStep() {
+  if (steps.length >= LIMITS.maxSteps) {
+    showToast('Достигнут лимит шагов (' + LIMITS.maxSteps + ')', 'error');
+    return;
+  }
+  // switchStep вызовет saveActiveEditorToStep, но копию cur надо сделать
+  // ПОСЛЕ сохранения, чтобы в неё попали актуальные правки
+  saveActiveEditorToStep();
+  clearTimeout(debounceTimer);
+  const cur = steps[currentStep];
+  steps.push({
+    name: defaultStepName(steps.length + 1),
+    html: cur.html, css: cur.css, js: cur.js
+  });
+  markDirty();
+  currentStep = steps.length - 1;
+  loadStepIntoEditors();
+  renderBottomBar();
+  updatePreview();
+}
+
+function deleteStep() {
+  if (steps.length <= 1) return;
+  clearTimeout(debounceTimer);
+  steps.splice(currentStep, 1);
+  if (currentStep >= steps.length) currentStep = steps.length - 1;
+  markDirty();
+  loadStepIntoEditors();
+  renderBottomBar();
+  updatePreview();
+}
+
+prevBtn.onclick = () => switchStep(currentStep - 1);
+nextBtn.onclick = () => switchStep(currentStep + 1);
+stepAddBtn.onclick = addStep;
+stepDeleteBtn.onclick = deleteStep;
+
+/* ---------- Вкладки ---------- */
+
+function bindTabs(tabs, containers, editorsMap, dataAttr) {
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const lang = tab.dataset[dataAttr];
+      containers.forEach(c => c.classList.toggle('active', c.dataset.lang === lang));
+      if (editorsMap[lang]) setTimeout(() => editorsMap[lang].refresh(), 10);
+    };
+  });
+}
+
+bindTabs(tabsDesktop, containersDesktop, editors, 'lang');
+bindTabs(tabsOverlay, containersOverlay, overlayEditors, 'overlayTab');
+
+/* ---------- Горячие клавиши ---------- */
+
+document.addEventListener('keydown', (e) => {
+  if (e.target === stepNameInput) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod || !e.shiftKey) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); switchStep(currentStep + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); switchStep(currentStep - 1); }
+});
+
+/* ---------- Консоль ---------- */
+
+consoleHeader.addEventListener('click', (e) => {
+  if (e.target.closest('.console-actions')) return;
+  consolePanel.classList.toggle('collapsed');
+});
+consoleClearBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearConsole();
+});
+
+/* ============================================================
+   SPLITTER
+   ============================================================ */
+
+(function() {
+  const handle = document.getElementById('resizeHandle');
+  const leftPane = document.getElementById('editorPane');
+  const main = document.querySelector('.main');
+  let dragging = false;
+  let narrow50Applied = false;
+  const MIN_PX = 200;
+
+  function setLeftWidth(pct, persist = false) {
+    pct = Math.max(0, Math.min(100, pct));
+    leftPane.style.width = pct + '%';
+    leftPane.style.flex = 'none';
+    Object.values(editors).forEach(ed => ed.refresh());
+    if (persist) {
+      try { localStorage.setItem(SPLIT_KEY, String(pct)); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function restoreSplit() {
+    try {
+      const raw = localStorage.getItem(SPLIT_KEY);
+      if (raw === null) return;
+      const pct = parseFloat(raw);
+      if (!isFinite(pct)) return;
+      setLeftWidth(pct);
+    } catch (e) { /* ignore */ }
+  }
+
+  function onMouseDown(e) {
+    e.preventDefault();
+    dragging = true;
+    narrow50Applied = false;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    handle.classList.add('dragging');
+    previewFrame.style.pointerEvents = 'none';
+    consolePanel.style.pointerEvents = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  function onMouseMove(e) {
+    if (!dragging) return;
+    const rect = main.getBoundingClientRect();
+    if (rect.width < MIN_PX * 2) {
+      if (!narrow50Applied) {
+        setLeftWidth(50);
+        narrow50Applied = true;
+      }
+      return;
+    }
+    narrow50Applied = false;
+    const minPct = (MIN_PX / rect.width) * 100;
+    const maxPct = 100 - minPct;
+    let pct = ((e.clientX - rect.left) / rect.width) * 100;
+    pct = Math.max(minPct, Math.min(maxPct, pct));
+    setLeftWidth(pct);
+  }
+
+  function onMouseUp() {
+    if (!dragging) return;
+    dragging = false;
+    narrow50Applied = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    handle.classList.remove('dragging');
+    previewFrame.style.pointerEvents = '';
+    consolePanel.style.pointerEvents = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    const currentPct = parseFloat(leftPane.style.width);
+    if (isFinite(currentPct)) {
+      try { localStorage.setItem(SPLIT_KEY, String(currentPct)); } catch (e) { /* ignore */ }
+    }
+  }
+
+  handle.addEventListener('mousedown', onMouseDown);
+  handle.addEventListener('dblclick', () => setLeftWidth(50, true));
+  window.addEventListener('blur', onMouseUp);
+  restoreSplit();
+})();
+
+/* ---------- Throttle refresh на resize ---------- */
+
+let resizeRafId = null;
+window.addEventListener('resize', () => {
+  if (resizeRafId !== null) return;
+  resizeRafId = requestAnimationFrame(() => {
+    resizeRafId = null;
+    if (!isMobile()) {
+      Object.values(editors).forEach(ed => ed.refresh());
+    } else if (overlayIsActive()) {
+      Object.values(overlayEditors).forEach(ed => ed.refresh());
+    }
+  });
+});
+
+/* ============================================================
+   СОХРАНЕНИЕ / ЗАГРУЗКА / ЭКСПОРТ / ИМПОРТ
+   ============================================================ */
+
+function saveToStorage() {
+  saveActiveEditorToStep();
+  try {
+    const serialized = JSON.stringify(steps);
+    localStorage.setItem(STORAGE_KEY, serialized);
+    setDirty(false);
+    showToast('Сохранено в localStorage', 'success');
+  } catch (e) {
+    showToast('Не удалось сохранить: ' + e.message, 'error');
+  }
+}
+
+function normalizeSteps(rawArray) {
+  if (!Array.isArray(rawArray) || rawArray.length === 0) {
+    throw new Error('Ожидается непустой массив шагов');
+  }
+  if (rawArray.length > LIMITS.maxSteps) {
+    throw new Error('Слишком много шагов (макс. ' + LIMITS.maxSteps + ')');
+  }
+  let totalBytes = 0;
+  const result = [];
+  for (let i = 0; i < rawArray.length; i++) {
+    const raw = rawArray[i];
+    const s = raw && typeof raw === 'object' ? raw : {};
+    const step = {
+      name: typeof s.name === 'string'
+        ? s.name.slice(0, LIMITS.maxStepNameLen)
+        : defaultStepName(i + 1),
+      html: typeof s.html === 'string' ? s.html : '',
+      css:  typeof s.css  === 'string' ? s.css  : '',
+      js:   typeof s.js   === 'string' ? s.js   : ''
+    };
+    const size = byteLength(step.html) + byteLength(step.css) + byteLength(step.js);
+    totalBytes += size;
+    if (size > LIMITS.maxStepContentBytes) {
+      throw new Error('Шаг ' + (i + 1) + ' слишком большой (макс. 2 МБ)');
+    }
+    if (totalBytes > LIMITS.maxTotalContentBytes) {
+      throw new Error('Общий размер шагов слишком большой (макс. 5 МБ)');
+    }
+    result.push(step);
+  }
+  return result;
+}
+
+function loadFromStorage() {
+  let raw;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeSteps(parsed);
+  } catch (e) {
+    console.warn('Ошибка чтения localStorage:', e);
+    // Покажем тост после инициализации UI (см. ниже флаг)
+    loadFromStorage._error = e.message;
+    return null;
+  }
+}
+
+function applySteps(newSteps) {
+  steps = newSteps;
+  currentStep = 0;
+  loadStepIntoEditors();
+  renderBottomBar();
+  updatePreview();
+  markDirty();
+}
+
+function exportJSON() {
+  try {
+    saveActiveEditorToStep();
+    const data = JSON.stringify(steps, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const stamp = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') + '-' +
+      String(now.getMinutes()).padStart(2, '0');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `steps-${stamp}.json`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    showToast('JSON выгружен', 'success');
+  } catch (e) {
+    console.error('Ошибка экспорта:', e);
+    showToast('Ошибка экспорта: ' + e.message, 'error');
+  }
+}
+
+function importJSON(file) {
+  if (file.size > LIMITS.maxFileSize) {
+    showToast('Файл слишком большой (макс. 5 МБ)', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const normalized = normalizeSteps(parsed);
+      applySteps(normalized);
+      showToast('Импортировано шагов: ' + normalized.length, 'success');
+    } catch (e) {
+      showToast('Ошибка импорта: ' + e.message, 'error');
+    }
+  };
+  reader.onerror = () => showToast('Не удалось прочитать файл', 'error');
+  reader.readAsText(file);
+}
+
+saveBtn.onclick = saveToStorage;
+exportBtn.onclick = exportJSON;
+importBtn.onclick = () => importFile.click();
+mobileSaveBtn.onclick = saveToStorage;
+mobileExportBtn.onclick = exportJSON;
+mobileImportBtn.onclick = () => importFile.click();
+
+importFile.onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (file) importJSON(file);
+};
+
+/* ============================================================
+   ИНИЦИАЛИЗАЦИЯ
+   ============================================================ */
+
+initEditors();
+
+const loaded = loadFromStorage();
+if (loaded) {
+  steps = loaded;
+  currentStep = 0;
+} else {
+  steps = makeDefaultSteps();
+  currentStep = 0;
+}
+
+loadStepIntoEditors();
+renderBottomBar();
+updatePreview();
+setDirty(false);
+restoreMode();
+
+// Если в localStorage были битые/слишком большие данные — сообщим пользователю
+if (loadFromStorage._error) {
+  showToast('Не удалось загрузить сохранённые шаги: ' + loadFromStorage._error, 'error');
+}
+</script>
+</body>
+</html>
